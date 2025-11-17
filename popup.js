@@ -145,14 +145,15 @@ function refreshMatrix() {
         
         Object.entries(priorities).forEach(([id, data]) => {
             const li = document.createElement('li');
+            li.className = 'email-item';
+            li.setAttribute('data-email-id', id);
             
-            // Clean and format subject
+            // Use custom label if exists, otherwise use subject
+            let displayText = data.customLabel || data.subject || 'Nincs tárgy';
+            
+            // Clean and format subject (original for tooltip)
             let subject = data.subject || 'Nincs tárgy';
-            
-            // Remove excessive whitespace and line breaks
             subject = subject.replace(/\s+/g, ' ').trim();
-            
-            // Extra cleanup: remove any remaining prefixes (safety net)
             subject = subject
                 .replace(/^\[Piszkozat\]\s*/i, '')
                 .replace(/^Draft:\s*/i, '')
@@ -163,22 +164,61 @@ function refreshMatrix() {
                 .replace(/^TOV:\s*/i, '')
                 .trim();
             
-            // If empty after cleanup
             if (!subject || subject.length < 2) {
                 subject = 'Nincs tárgy';
             }
             
-            // Limit length for display (full text in tooltip)
-            const displaySubject = subject.length > 60 ? subject.substring(0, 57) + '...' : subject;
+            // Strict limit: 40 chars max for display
+            const MAX_DISPLAY_LENGTH = 40;
+            if (displayText.length > MAX_DISPLAY_LENGTH) {
+                displayText = displayText.substring(0, MAX_DISPLAY_LENGTH - 3) + '...';
+            }
             
-            li.textContent = displaySubject;
-            li.title = `${subject}\nFontosság: ${data.importance}/4\nSürgősség: ${data.urgency}/4\nMentve: ${new Date(data.timestamp).toLocaleString('hu-HU')}`;
+            // Create subject span (clickable to show preview)
+            const subjectSpan = document.createElement('span');
+            subjectSpan.className = 'email-subject';
+            subjectSpan.textContent = displayText;
+            subjectSpan.title = `${data.customLabel ? '🏷️ ' + data.customLabel + '\n' : ''}📧 ${subject}\nFontosság: ${data.importance}/4\nSürgősség: ${data.urgency}/4\nMentve: ${new Date(data.timestamp).toLocaleString('hu-HU')}\n\n🖱️ Kattints az előnézethez`;
+            subjectSpan.style.cursor = 'pointer';
+            
+            // Click to show email preview modal
+            subjectSpan.onclick = (e) => {
+                e.stopPropagation();
+                showEmailPreview(id, data);
+            };
+            
+            li.appendChild(subjectSpan);
+            
+            // Add rename button (edit label icon)
+            const renameBtn = document.createElement('button');
+            renameBtn.innerHTML = '✏️';
+            renameBtn.className = 'rename-btn';
+            renameBtn.title = 'Átnevezés';
+            renameBtn.onclick = (e) => {
+                e.stopPropagation();
+                renameEmail(id, data);
+            };
+            li.appendChild(renameBtn);
+            
+            // Add navigation button (open email icon)
+            const navBtn = document.createElement('button');
+            navBtn.innerHTML = '📧';
+            navBtn.className = 'nav-btn';
+            navBtn.title = 'Megnyitás az Outlook-ban';
+            navBtn.onclick = async (e) => {
+                e.stopPropagation();
+                await openEmailInOWA(id, data.subject, data.timestamp);
+            };
+            li.appendChild(navBtn);
             
             // Add delete button
             const deleteBtn = document.createElement('button');
             deleteBtn.textContent = '×';
             deleteBtn.className = 'delete-btn';
-            deleteBtn.onclick = () => deleteEmail(id);
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteEmail(id);
+            };
             li.appendChild(deleteBtn);
             
             if (data.importance >= 3 && data.urgency >= 3) {
@@ -221,6 +261,20 @@ function deleteEmail(emailId) {
         chrome.storage.local.set({emailPriorities: priorities}, () => {
             refreshMatrix();
             showNotification('🗑️ Törölve', 'success');
+            
+            // Notify content script to remove highlighting and badge
+            chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+                if (tabs[0]) {
+                    chrome.tabs.sendMessage(tabs[0].id, {
+                        action: 'removeHighlight',
+                        emailId: emailId
+                    }, (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.log('Content script not active or email not in current page');
+                        }
+                    });
+                }
+            });
         });
     });
 }
@@ -252,6 +306,178 @@ document.getElementById('clear-data').addEventListener('click', () => {
         });
     }
 });
+
+// Open email in OWA by clicking on the email element in the list
+async function openEmailInOWA(emailId, emailSubject, emailTimestamp) {
+    try {
+        console.log('📬 Attempting to open email:', emailId, emailSubject);
+        
+        // Get all tabs
+        const tabs = await chrome.tabs.query({});
+        
+        // Find OWA tab (check for common OWA URLs)
+        const owaTab = tabs.find(tab => 
+            tab.url && (
+                tab.url.includes('outlook.office.com') ||
+                tab.url.includes('outlook.office365.com') ||
+                tab.url.includes('/owa/') ||
+                tab.url.includes('outlook.live.com')
+            )
+        );
+        
+        if (!owaTab) {
+            showNotification('⚠️ Outlook Web App nincs megnyitva', 'error');
+            return;
+        }
+        
+        // Switch to OWA tab
+        await chrome.tabs.update(owaTab.id, { active: true });
+        await chrome.windows.update(owaTab.windowId, { focused: true });
+        
+        // Send message to content script to open the email
+        chrome.tabs.sendMessage(owaTab.id, {
+            action: 'openEmail',
+            emailId: emailId,
+            emailSubject: emailSubject,
+            emailTimestamp: emailTimestamp
+        }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error('Error opening email:', chrome.runtime.lastError);
+                showNotification('⚠️ Nem sikerült megnyitni az emailt', 'error');
+            } else if (response && response.success) {
+                console.log('✅ Email megnyitva:', emailId);
+                // Close popup after opening email
+                window.close();
+            } else {
+                showNotification('⚠️ Email nem található a listában', 'error');
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error in openEmailInOWA:', error);
+        showNotification('❌ Hiba történt', 'error');
+    }
+}
+
+// Rename email with custom label
+function renameEmail(emailId, data) {
+    const currentLabel = data.customLabel || data.subject || '';
+    const newLabel = prompt('Add meg az új címkét:', currentLabel);
+    
+    if (newLabel === null) return; // Cancelled
+    
+    chrome.storage.local.get(['emailPriorities'], (result) => {
+        const priorities = result.emailPriorities || {};
+        
+        if (priorities[emailId]) {
+            priorities[emailId].customLabel = newLabel.trim();
+            
+            chrome.storage.local.set({ emailPriorities: priorities }, () => {
+                showNotification('✅ Címke frissítve!', 'success');
+                refreshMatrix();
+            });
+        }
+    });
+}
+
+// Show email preview modal
+function showEmailPreview(emailId, data) {
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.className = 'email-preview-modal';
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    };
+    
+    // Create modal content
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+    
+    // Header
+    const header = document.createElement('div');
+    header.className = 'modal-header';
+    
+    const title = document.createElement('h3');
+    title.textContent = data.customLabel || data.subject || 'Nincs tárgy';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'modal-close';
+    closeBtn.textContent = '×';
+    closeBtn.onclick = () => modal.remove();
+    
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    
+    // Body
+    const body = document.createElement('div');
+    body.className = 'modal-body';
+    
+    // Email details
+    const details = document.createElement('div');
+    details.className = 'email-details';
+    
+    // Subject row
+    const subjectRow = document.createElement('div');
+    subjectRow.className = 'detail-row';
+    subjectRow.innerHTML = `<strong>📧 Tárgy:</strong> ${data.subject || 'Nincs tárgy'}`;
+    details.appendChild(subjectRow);
+    
+    // Custom label row (if exists)
+    if (data.customLabel) {
+        const labelRow = document.createElement('div');
+        labelRow.className = 'detail-row';
+        labelRow.innerHTML = `<strong>🏷️ Címke:</strong> ${data.customLabel}`;
+        details.appendChild(labelRow);
+    }
+    
+    // Priority row
+    const priorityRow = document.createElement('div');
+    priorityRow.className = 'detail-row';
+    priorityRow.innerHTML = `
+        <strong>📊 Prioritás:</strong> 
+        <span class="priority-badge importance">Fontosság: ${data.importance}/4</span>
+        <span class="priority-badge urgency">Sürgősség: ${data.urgency}/4</span>
+    `;
+    details.appendChild(priorityRow);
+    
+    // Timestamp row
+    const timestampRow = document.createElement('div');
+    timestampRow.className = 'detail-row';
+    timestampRow.innerHTML = `<strong>🕒 Mentve:</strong> ${new Date(data.timestamp).toLocaleString('hu-HU')}`;
+    details.appendChild(timestampRow);
+    
+    body.appendChild(details);
+    
+    // Action buttons
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    
+    const openBtn = document.createElement('button');
+    openBtn.className = 'btn-primary';
+    openBtn.textContent = '📧 Megnyitás Outlook-ban';
+    openBtn.onclick = async () => {
+        modal.remove();
+        await openEmailInOWA(emailId, data.subject, data.timestamp);
+    };
+    
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn-secondary';
+    cancelBtn.textContent = 'Bezár';
+    cancelBtn.onclick = () => modal.remove();
+    
+    actions.appendChild(openBtn);
+    actions.appendChild(cancelBtn);
+    
+    body.appendChild(actions);
+    
+    modalContent.appendChild(header);
+    modalContent.appendChild(body);
+    modal.appendChild(modalContent);
+    
+    document.body.appendChild(modal);
+}
 
 // Load settings on popup open
 window.addEventListener('load', () => {

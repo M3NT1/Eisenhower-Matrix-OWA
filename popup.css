@@ -297,7 +297,11 @@ body {
   border-radius: 12px;
   padding: 12px;
   min-height: 180px;
+  max-height: 180px;
+  display: flex;
+  flex-direction: column;
   transition: all 0.2s ease;
+  overflow: hidden;
 }
 
 .matrix-quadrant:hover {
@@ -329,47 +333,64 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  flex-shrink: 0;
 }
 
 .quadrant-icon {
-  font-size: 18px;
+  font-size: 16px;
+  flex-shrink: 0;
 }
 
 .quadrant-header h3 {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
+  flex-shrink: 0;
 }
 
 .quadrant-desc {
   font-size: 11px;
   color: var(--text-secondary);
   font-weight: 500;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
 }
 
 .item-list {
   list-style: none;
   padding: 0;
   margin: 0;
-  max-height: 140px;
+  flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .item-list li {
-  padding: 8px;
+  padding: 6px 8px;
   margin-bottom: 4px;
   background: rgba(255, 255, 255, 0.7);
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-primary);
-  position: relative;
-  padding-right: 32px;
   word-wrap: break-word;
-  line-height: 1.4;
+  line-height: 1.3;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.item-list li .email-subject {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .item-list li:hover {
@@ -385,18 +406,39 @@ body {
   padding: 16px;
 }
 
+.nav-btn {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--primary-color);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.nav-btn:hover {
+  background: var(--primary-color);
+  filter: brightness(1.1);
+  transform: scale(1.1);
+}
+
 .delete-btn {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 20px;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
   border: none;
   border-radius: 50%;
   background: rgba(220, 53, 69, 0.1);
   color: var(--color-critical);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: bold;
   line-height: 1;
   cursor: pointer;
@@ -404,12 +446,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
 }
 
 .delete-btn:hover {
   background: var(--color-critical);
   color: white;
-  transform: translateY(-50%) scale(1.1);
+  transform: scale(1.1);
 }
 
 /* Settings */
@@ -509,4 +552,186 @@ body {
 
 .item-list::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
+}
+
+/* Rename button */
+.rename-btn {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.rename-btn:hover {
+  background: #f59e0b;
+  transform: scale(1.1);
+}
+
+/* Email Preview Modal */
+.email-preview-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-content {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  animation: slideIn 0.3s ease;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  max-height: calc(80vh - 140px);
+}
+
+.email-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.detail-row strong {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.priority-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.priority-badge.importance {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.priority-badge.urgency {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.btn-primary,
+.btn-secondary {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  color: white;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  background: var(--border-color);
 }

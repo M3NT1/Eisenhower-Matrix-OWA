@@ -745,6 +745,159 @@ setTimeout(() => {
     console.log('👁️ DOM változás megfigyelő elindítva');
 }, 2000);
 
+// Listen for messages from popup to open specific email
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'openEmail') {
+        const emailId = request.emailId;
+        const emailSubject = request.emailSubject;
+        console.log('📬 Email megnyitási kérés:', emailId, emailSubject);
+        
+        // Strategy 1: Find by exact ID match
+        let emailElement = document.querySelector(`[data-convid="${emailId}"]`) ||
+                          document.querySelector(`[id="${emailId}"]`) ||
+                          document.querySelector(`[data-id="${emailId}"]`);
+
+        // Strategy 2: If not found by ID, search by subject in aria-label or text content
+        if (!emailElement && emailSubject) {
+            const emailTimestamp = request.emailTimestamp;
+            console.log('🔍 Keresés tárgy alapján:', emailSubject, 'timestamp:', emailTimestamp);
+
+            // Clean the subject for searching (remove prefixes)
+            const cleanSubject = emailSubject
+                .replace(/^\[Piszkozat\]\s*/i, '')
+                .replace(/^Draft:\s*/i, '')
+                .replace(/^\[Draft\]\s*/i, '')
+                .replace(/^RE:\s*/i, '')
+                .replace(/^FW:\s*/i, '')
+                .replace(/^VÁL:\s*/i, '')
+                .replace(/^TOV:\s*/i, '')
+                .replace(/^\[EXTERNAL\]\s*/i, '')
+                .replace(/^\[KÜLSŐ\]\s*/i, '')
+                .trim();
+
+            // Search in email list items and collect candidates
+            const allEmailItems = document.querySelectorAll('[data-convid], [role="option"]');
+            console.log(`🔍 ${allEmailItems.length} email elem átvizsgálása...`);
+            const candidates = [];
+
+            for (const item of allEmailItems) {
+                const ariaLabel = item.getAttribute('aria-label') || '';
+                const textContent = item.textContent || '';
+
+                // Exact or partial match in aria-label or text content
+                if (ariaLabel.includes(cleanSubject) || textContent.includes(cleanSubject)) {
+                    candidates.push(item);
+                }
+            }
+
+            // If single candidate, pick it
+            if (candidates.length === 1) {
+                emailElement = candidates[0];
+                console.log('✅ Egyértelmű találat tárgy alapján');
+            } else if (candidates.length > 1) {
+                console.log(`⚠️ Több találat (${candidates.length}), próbálkozás timestamp alapján...`);
+
+                // Helper: try parse date-like string from an element (title or text)
+                function parseDateFromString(s) {
+                    if (!s) return null;
+                    // try patterns like: 2025. 11. 17. 14:17 or 2025-11-17T14:17
+                    let m = s.match(/(\d{4})[^\d]*(\d{1,2})[^\d]*(\d{1,2})[^\d]*(\d{1,2}):(\d{2})/);
+                    if (m) {
+                        return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+                    }
+                    m = s.match(/(\d{4})-(\d{2})-(\d{2})T?(\d{2}):(\d{2})/);
+                    if (m) {
+                        return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+                    }
+                    return null;
+                }
+
+                let best = null;
+                let bestDiff = Infinity;
+                for (const cand of candidates) {
+                    // look for title attributes or time elements under the candidate
+                    const nodes = cand.querySelectorAll('[title], time, span');
+                    for (const n of nodes) {
+                        const txt = n.getAttribute('title') || n.textContent || '';
+                        const parsed = parseDateFromString(txt);
+                        if (parsed && emailTimestamp) {
+                            const diff = Math.abs(parsed.getTime() - Number(emailTimestamp));
+                            if (diff < bestDiff) {
+                                bestDiff = diff;
+                                best = cand;
+                            }
+                        }
+                    }
+                }
+
+                // If we found a close timestamp match (within 1 day), use it
+                if (best && bestDiff < 24 * 60 * 60 * 1000) {
+                    emailElement = best;
+                    console.log('✅ Találat timestamp alapján (bestDiff ms):', bestDiff);
+                } else {
+                    // Fallback: use first candidate
+                    emailElement = candidates[0];
+                    console.log('ℹ️ Timestamp alapján nem sikerült egyértelműsíteni, az első találatot használjuk');
+                }
+            }
+        }
+        
+        if (emailElement) {
+            // Scroll into view
+            emailElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Highlight briefly
+            const originalBg = emailElement.style.backgroundColor;
+            emailElement.style.backgroundColor = '#ffeb3b';
+            
+            // Click to open
+            setTimeout(() => {
+                emailElement.style.backgroundColor = originalBg;
+                emailElement.click();
+                console.log('✅ Email megnyitva és kattintva');
+                sendResponse({ success: true });
+            }, 500);
+            
+            return true; // Keep message channel open for async response
+        } else {
+            console.warn('⚠️ Email elem nem található ID vagy tárgy alapján');
+            sendResponse({ success: false, error: 'Email not found' });
+        }
+    }
+    
+    // Remove highlight and badge when email is deleted from priorities
+    if (request.action === 'removeHighlight') {
+        const emailId = request.emailId;
+        console.log('🗑️ Highlight eltávolítási kérés:', emailId);
+        
+        // Find and remove highlighting from list item
+        const emailElement = document.querySelector(`[data-convid="${emailId}"]`) ||
+                            document.querySelector(`[id="${emailId}"]`) ||
+                            document.querySelector(`[data-id="${emailId}"]`);
+        
+        if (emailElement) {
+            // Remove inline styles (background, border, padding)
+            emailElement.style.backgroundColor = '';
+            emailElement.style.borderLeft = '';
+            emailElement.style.paddingLeft = '';
+            emailElement.removeAttribute('data-priority-category');
+            emailElement.removeAttribute('data-priority-importance');
+            emailElement.removeAttribute('data-priority-urgency');
+            console.log('✅ List highlight eltávolítva:', emailId);
+        }
+        
+        // Remove badge from Reading Pane (if currently visible)
+        const existingBadge = document.querySelector('[role="main"] .eisenhower-badge');
+        if (existingBadge) {
+            existingBadge.parentElement?.remove();
+            console.log('✅ Reading Pane badge eltávolítva');
+        }
+        
+        sendResponse({ success: true });
+        return true;
+    }
+});
+
 // Cleanup on unload
 window.addEventListener('beforeunload', () => {
     observer.disconnect();
