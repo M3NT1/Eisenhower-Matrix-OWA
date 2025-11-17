@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Exchange Prioritizer - Eisenhower Matrix",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Priorizáld az e-maileket Eisenhower matrix alapján",
   "icons": {
     "16": "icons/icon16.png",
@@ -27,12 +27,18 @@
       "128": "icons/icon128.png"
     }
   },
+  "options_page": "settings.html",
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["*://*/*"],
+      "matches": [
+        "*://xch.ulyssys.hu/*",
+        "*://outlook.office365.com/*",
+        "*://outlook.office.com/*",
+        "*://outlook.live.com/*"
+      ],
       "js": ["content-script.js"],
       "css": ["styles.css"],
       "run_at": "document_end"

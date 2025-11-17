@@ -1,6 +1,57 @@
 // Content Script - Exchange Prioritizer
 console.log('📧 Exchange Prioritizer content script betöltve');
 
+// Check if current page is allowed to run
+const currentUrl = window.location.href;
+const currentHost = window.location.hostname;
+
+// Default allowed hosts (built-in support)
+const defaultAllowedHosts = [
+    'xch.ulyssys.hu',
+    'outlook.office365.com',
+    'outlook.office.com',
+    'outlook.live.com'
+];
+
+// Check if current host is allowed
+function isAllowedHost(hostname, customUrls = []) {
+    // Check default hosts
+    if (defaultAllowedHosts.includes(hostname)) {
+        return true;
+    }
+    
+    // Check custom URLs from settings
+    for (const url of customUrls) {
+        try {
+            const urlObj = new URL(url);
+            if (urlObj.hostname === hostname) {
+                return true;
+            }
+        } catch (e) {
+            console.warn('⚠️ Érvénytelen egyedi URL:', url);
+        }
+    }
+    
+    return false;
+}
+
+// Initialize content script only on allowed hosts
+chrome.storage.local.get(['customExchangeUrls'], (result) => {
+    const customUrls = result.customExchangeUrls || [];
+    
+    if (!isAllowedHost(currentHost, customUrls)) {
+        console.log(`🚫 Exchange Prioritizer letiltva ezen az oldalon: ${currentHost}`);
+        console.log('ℹ️ Engedélyezett szerverek:', [...defaultAllowedHosts, ...customUrls]);
+        return; // Stop execution
+    }
+    
+    console.log(`✅ Exchange Prioritizer fut: ${currentHost}`);
+    initializeExtension();
+});
+
+// Main initialization function
+function initializeExtension() {
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Handle context menu categorization
@@ -1376,3 +1427,5 @@ window.addEventListener('beforeunload', () => {
     observer.disconnect();
     console.log('👋 Content script leállítva');
 });
+
+} // End of initializeExtension()

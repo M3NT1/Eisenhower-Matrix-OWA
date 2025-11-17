@@ -298,6 +298,11 @@ document.getElementById('save-settings').addEventListener('click', () => {
     });
 });
 
+// Open full settings page
+document.getElementById('open-full-settings').addEventListener('click', () => {
+    chrome.runtime.openOptionsPage();
+});
+
 document.getElementById('clear-data').addEventListener('click', () => {
     if (confirm('Biztosan törlöd az összes adatot?')) {
         chrome.storage.local.clear(() => {
