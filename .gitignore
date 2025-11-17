@@ -1,0 +1,14 @@
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+
+# Old backup files
+*-old.*
+popup-old.css
+
+# Logs
+*.log

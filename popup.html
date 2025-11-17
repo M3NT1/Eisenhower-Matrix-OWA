@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="popup.css">
+    <title>Exchange Prioritizer</title>
+</head>
+<body>
+    <div class="popup-container">
+        <header class="header">
+            <h1>📊 Exchange Prioritizer</h1>
+        </header>
+        
+        <div class="tab-buttons">
+            <button class="tab-btn active" data-tab="prioritize">Priorizálás</button>
+            <button class="tab-btn" data-tab="matrix">Mátrix</button>
+            <button class="tab-btn" data-tab="settings">Beállítások</button>
+        </div>
+
+        <!-- Prioritize Tab -->
+        <div class="tab-content active" id="prioritize">
+            <div class="priority-grid">
+                <div class="priority-section">
+                    <h3>Fontosság</h3>
+                    <div class="button-grid importance-buttons">
+                        <button class="importance-btn btn-grid" data-level="4">⭐⭐ V. Fontos</button>
+                        <button class="importance-btn btn-grid" data-level="3">⭐ Fontos</button>
+                        <button class="importance-btn btn-grid" data-level="2">⚠️ Kevésbé</button>
+                        <button class="importance-btn btn-grid" data-level="1">❌ Nem Fontos</button>
+                    </div>
+                </div>
+
+                <div class="priority-section">
+                    <h3>Sürgősség</h3>
+                    <div class="button-grid urgency-buttons">
+                        <button class="urgency-btn btn-grid" data-level="4">🚨 Azonnal!</button>
+                        <button class="urgency-btn btn-grid" data-level="3">🔔 Sürgős</button>
+                        <button class="urgency-btn btn-grid" data-level="2">⏱️ Kevésbé</button>
+                        <button class="urgency-btn btn-grid" data-level="1">✓ Nem Sürgős</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="result-box">
+                <div class="result-label">Kategória:</div>
+                <div id="category-result" class="result-value">--</div>
+            </div>
+
+            <button id="save-priority" class="btn-primary">💾 Prioritás mentése</button>
+        </div>
+
+        <!-- Matrix Tab -->
+        <div class="tab-content" id="matrix">
+            <div class="matrix-header">
+                <h2>Eisenhower Mátrix</h2>
+                <button id="refresh-matrix" class="btn-icon">🔄</button>
+            </div>
+            
+            <div class="eisenhower-matrix">
+                <div class="matrix-quadrant do-first">
+                    <div class="quadrant-header">
+                        <span class="quadrant-icon">🔴</span>
+                        <h3>Do First</h3>
+                    </div>
+                    <p class="quadrant-desc">Fontos & Sürgős</p>
+                    <ul id="matrix-do-first" class="item-list"></ul>
+                </div>
+                
+                <div class="matrix-quadrant schedule">
+                    <div class="quadrant-header">
+                        <span class="quadrant-icon">🟡</span>
+                        <h3>Schedule</h3>
+                    </div>
+                    <p class="quadrant-desc">Fontos & Nem Sürgős</p>
+                    <ul id="matrix-schedule" class="item-list"></ul>
+                </div>
+                
+                <div class="matrix-quadrant delegate">
+                    <div class="quadrant-header">
+                        <span class="quadrant-icon">🔵</span>
+                        <h3>Delegate</h3>
+                    </div>
+                    <p class="quadrant-desc">Nem Fontos & Sürgős</p>
+                    <ul id="matrix-delegate" class="item-list"></ul>
+                </div>
+                
+                <div class="matrix-quadrant eliminate">
+                    <div class="quadrant-header">
+                        <span class="quadrant-icon">🟢</span>
+                        <h3>Eliminate</h3>
+                    </div>
+                    <p class="quadrant-desc">Nem Fontos & Nem Sürgős</p>
+                    <ul id="matrix-eliminate" class="item-list"></ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div class="tab-content" id="settings">
+            <div class="section">
+                <label for="exchange-url">Exchange Server URL:</label>
+                <input type="text" id="exchange-url" placeholder="http://sys-xch11.alig.hu">
+            </div>
+
+            <div class="section">
+                <label for="auto-categorize">
+                    <input type="checkbox" id="auto-categorize">
+                    Automatikus kategorizálás
+                </label>
+            </div>
+
+            <button id="save-settings" class="btn-primary">💾 Mentés</button>
+            <button id="clear-data" class="btn-danger">🗑️ Adatok törlése</button>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

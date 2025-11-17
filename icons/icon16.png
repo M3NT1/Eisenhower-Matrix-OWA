@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <rect width="16" height="16" rx="3" fill="#21808D"/>
+  <g fill="white">
+    <!-- Grid for Eisenhower Matrix -->
+    <line x1="8" y1="3" x2="8" y2="13" stroke="white" stroke-width="0.5"/>
+    <line x1="3" y1="8" x2="13" y2="8" stroke="white" stroke-width="0.5"/>
+    
+    <!-- Checkmark -->
+    <path d="M5 8 L7 10 L11 6" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

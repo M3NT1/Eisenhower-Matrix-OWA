@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Icon Generator</title>
+    <style>
+        body { font-family: system-ui; padding: 20px; }
+        canvas { border: 1px solid #ccc; margin: 10px; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>PNG Ikon Generátor</h1>
+    <p>Kattints a gombra az ikonok PNG formátumban való letöltéséhez.</p>
+    
+    <div id="canvases"></div>
+    <button onclick="generateAllIcons()">Összes Ikon Generálása</button>
+    
+    <script>
+        const sizes = [
+            { size: 16, file: 'icon16.png' },
+            { size: 48, file: 'icon48.png' },
+            { size: 128, file: 'icon128.png' }
+        ];
+        
+        function drawIcon(ctx, size) {
+            const scale = size / 128;
+            
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#2DA6B2');
+            gradient.addColorStop(1, '#21808D');
+            ctx.fillStyle = gradient;
+            
+            // Rounded rectangle
+            const radius = size / 5.3;
+            ctx.beginPath();
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(size - radius, 0);
+            ctx.quadraticCurveTo(size, 0, size, radius);
+            ctx.lineTo(size, size - radius);
+            ctx.quadraticCurveTo(size, size, size - radius, size);
+            ctx.lineTo(radius, size);
+            ctx.quadraticCurveTo(0, size, 0, size - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Grid lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = 3 * scale;
+            
+            // Vertical line
+            ctx.beginPath();
+            ctx.moveTo(size / 2, size * 0.15);
+            ctx.lineTo(size / 2, size * 0.85);
+            ctx.stroke();
+            
+            // Horizontal line
+            ctx.beginPath();
+            ctx.moveTo(size * 0.15, size / 2);
+            ctx.lineTo(size * 0.85, size / 2);
+            ctx.stroke();
+            
+            // Quadrant dots
+            const dotRadius = 8 * scale;
+            const positions = [
+                { x: size * 0.33, y: size * 0.33, color: '#FF5459' }, // Red
+                { x: size * 0.67, y: size * 0.33, color: '#FFB84D' }, // Yellow
+                { x: size * 0.33, y: size * 0.67, color: '#4499FF' }, // Blue
+                { x: size * 0.67, y: size * 0.67, color: '#44BB44' }  // Green
+            ];
+            
+            positions.forEach(pos => {
+                ctx.fillStyle = pos.color;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, dotRadius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            // Checkmark
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 8 * scale;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.globalAlpha = 0.9;
+            
+            ctx.beginPath();
+            ctx.moveTo(size * 0.31, size * 0.5);
+            ctx.lineTo(size * 0.44, size * 0.625);
+            ctx.lineTo(size * 0.69, size * 0.375);
+            ctx.stroke();
+            
+            ctx.globalAlpha = 1.0;
+        }
+        
+        function generateIcon(size, filename) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            drawIcon(ctx, size);
+            
+            // Download
+            canvas.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+            
+            // Display
+            document.getElementById('canvases').appendChild(canvas);
+        }
+        
+        function generateAllIcons() {
+            document.getElementById('canvases').innerHTML = '';
+            sizes.forEach(({ size, file }) => {
+                setTimeout(() => generateIcon(size, file), 100);
+            });
+        }
+        
+        // Auto generate on load
+        window.onload = () => {
+            sizes.forEach(({ size, file }) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                drawIcon(ctx, size);
+                document.getElementById('canvases').appendChild(canvas);
+            });
+        };
+    </script>
+</body>
+</html>
