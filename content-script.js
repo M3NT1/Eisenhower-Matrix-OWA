@@ -363,33 +363,23 @@ function extractEmailData(emailElement) {
 function highlightEmail(emailElement, importance, urgency) {
     let color = '';
     let borderColor = '';
-    let badgeColor = '';
-    let badgeIcon = '';
     let category = '';
     
     if (importance >= 3 && urgency >= 3) {
         color = '#ffe6e6';
         borderColor = '#ff4444';
-        badgeColor = '#ef4444';
-        badgeIcon = '🔴';
         category = 'Do First';
     } else if (importance >= 3 && urgency < 3) {
         color = '#fff9e6';
         borderColor = '#ffb84d';
-        badgeColor = '#f59e0b';
-        badgeIcon = '🟡';
         category = 'Schedule';
     } else if (importance < 3 && urgency >= 3) {
         color = '#e6f3ff';
         borderColor = '#4499ff';
-        badgeColor = '#3b82f6';
-        badgeIcon = '🔵';
         category = 'Delegate';
     } else {
         color = '#e6ffe6';
         borderColor = '#44bb44';
-        badgeColor = '#10b981';
-        badgeIcon = '🟢';
         category = 'Eliminate';
     }
     
@@ -401,11 +391,10 @@ function highlightEmail(emailElement, importance, urgency) {
     
     // Add data attribute for tracking
     emailElement.setAttribute('data-priority-category', category);
+    emailElement.setAttribute('data-priority-importance', importance);
+    emailElement.setAttribute('data-priority-urgency', urgency);
     
-    // Add badge to Reading Pane
-    addReadingPaneBadge(category, badgeColor, badgeIcon, importance, urgency);
-    
-    console.log(`🎨 Email kiemelve: ${category}`);
+    console.log(`🎨 Email kiemelve listában: ${category}`);
 }
 
 // Add priority badge to Reading Pane
@@ -598,40 +587,58 @@ function applySavedPriorities() {
 // Check if selected email has priority and show badge in Reading Pane
 function checkSelectedEmailForBadge(priorities) {
     const currentEmail = getCurrentEmail();
-    if (!currentEmail) return;
+    if (!currentEmail) {
+        console.log('⚠️ Nincs kiválasztott email');
+        return;
+    }
     
     const emailId = currentEmail.getAttribute('data-convid') || 
                    currentEmail.getAttribute('id') || 
                    currentEmail.getAttribute('data-id');
     
-    if (emailId && priorities[emailId]) {
-        const data = priorities[emailId];
-        
-        let badgeColor = '';
-        let badgeIcon = '';
-        let category = '';
-        
-        if (data.importance >= 3 && data.urgency >= 3) {
-            badgeColor = '#ef4444';
-            badgeIcon = '🔴';
-            category = 'Do First';
-        } else if (data.importance >= 3 && data.urgency < 3) {
-            badgeColor = '#f59e0b';
-            badgeIcon = '🟡';
-            category = 'Schedule';
-        } else if (data.importance < 3 && data.urgency >= 3) {
-            badgeColor = '#3b82f6';
-            badgeIcon = '🔵';
-            category = 'Delegate';
-        } else {
-            badgeColor = '#10b981';
-            badgeIcon = '🟢';
-            category = 'Eliminate';
-        }
-        
-        addReadingPaneBadge(category, badgeColor, badgeIcon, data.importance, data.urgency);
-        console.log('🏷️ Badge megjelenítve a kiválasztott emailhez');
+    if (!emailId) {
+        console.log('⚠️ Email ID nem található');
+        return;
     }
+    
+    // Check if this email has a saved priority
+    if (!priorities[emailId]) {
+        console.log(`ℹ️ Email nincs priorizálva, badge nem jelenik meg (ID: ${emailId})`);
+        // Remove any existing badge since this email is not prioritized
+        const existingBadge = document.querySelector('[role="main"] .eisenhower-badge');
+        if (existingBadge) {
+            existingBadge.parentElement?.remove();
+            console.log('🗑️ Korábbi badge eltávolítva');
+        }
+        return;
+    }
+    
+    const data = priorities[emailId];
+    
+    let badgeColor = '';
+    let badgeIcon = '';
+    let category = '';
+    
+    if (data.importance >= 3 && data.urgency >= 3) {
+        badgeColor = '#ef4444';
+        badgeIcon = '🔴';
+        category = 'Do First';
+    } else if (data.importance >= 3 && data.urgency < 3) {
+        badgeColor = '#f59e0b';
+        badgeIcon = '🟡';
+        category = 'Schedule';
+    } else if (data.importance < 3 && data.urgency >= 3) {
+        badgeColor = '#3b82f6';
+        badgeIcon = '🔵';
+        category = 'Delegate';
+    } else {
+        badgeColor = '#10b981';
+        badgeIcon = '🟢';
+        category = 'Eliminate';
+    }
+    
+    addReadingPaneBadge(category, badgeColor, badgeIcon, data.importance, data.urgency);
+    console.log(`🏷️ Badge megjelenítve: ${category} (F:${data.importance}/4, S:${data.urgency}/4)`);
 }
 
 // Initialize on page load
