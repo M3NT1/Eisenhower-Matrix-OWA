@@ -1056,6 +1056,261 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
+// Quick categorization buttons helper
+function createQuickActionButtons(targetEmail) {
+    const categories = [
+        { name: 'Do First', icon: '🔴', importance: 4, urgency: 4, color: '#ff4444' },
+        { name: 'Schedule', icon: '🟡', importance: 4, urgency: 2, color: '#ffb84d' },
+        { name: 'Delegate', icon: '🔵', importance: 2, urgency: 4, color: '#4499ff' },
+        { name: 'Eliminate', icon: '🟢', importance: 2, urgency: 2, color: '#44bb44' }
+    ];
+    
+    const container = document.createElement('div');
+    container.className = 'eisenhower-quick-actions';
+    container.style.cssText = `
+        display: inline-flex;
+        gap: 6px;
+        margin-left: 12px;
+        vertical-align: middle;
+    `;
+    
+    categories.forEach(cat => {
+        const button = document.createElement('button');
+        button.className = 'eisenhower-quick-btn';
+        button.textContent = cat.icon;
+        button.title = cat.name;
+        button.style.cssText = `
+            width: 28px;
+            height: 28px;
+            border: 2px solid ${cat.color};
+            background: ${cat.color}15;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            padding: 0;
+        `;
+        
+        // Hover effect
+        button.addEventListener('mouseenter', () => {
+            button.style.background = cat.color;
+            button.style.transform = 'scale(1.15)';
+            button.style.boxShadow = `0 2px 8px ${cat.color}60`;
+        });
+        
+        button.addEventListener('mouseleave', () => {
+            button.style.background = `${cat.color}15`;
+            button.style.transform = 'scale(1)';
+            button.style.boxShadow = 'none';
+        });
+        
+        // Click handler
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            const emailData = extractEmailData(targetEmail);
+            
+            const priorityData = {
+                id: emailData.id,
+                subject: emailData.subject,
+                importance: cat.importance,
+                urgency: cat.urgency,
+                timestamp: Date.now()
+            };
+            
+            // Save to storage
+            chrome.storage.local.get(['emailPriorities'], (result) => {
+                const priorities = result.emailPriorities || {};
+                priorities[emailData.id] = priorityData;
+                chrome.storage.local.set({emailPriorities: priorities}, () => {
+                    console.log('✅ Gyors kategorizálás:', cat.name);
+                    
+                    // Highlight the email if it's a list item
+                    if (targetEmail.hasAttribute('role') && targetEmail.getAttribute('role') === 'row') {
+                        highlightEmail(targetEmail, cat.importance, cat.urgency);
+                    }
+                    
+                    showInPageNotification(`✅ ${cat.icon} ${cat.name}`);
+                });
+            });
+        });
+        
+        container.appendChild(button);
+    });
+    
+    return container;
+}
+
+// Add quick action buttons to Reading Pane badge
+function addQuickActionsToReadingPane() {
+    const badge = document.querySelector('[role="main"] .eisenhower-badge');
+    if (!badge) return;
+    
+    // Check if buttons already added
+    if (badge.parentElement.querySelector('.eisenhower-quick-actions')) {
+        return;
+    }
+    
+    // Get current email from Reading Pane
+    const readingPaneEmail = getReadingPaneEmail();
+    if (!readingPaneEmail) return;
+    
+    const quickActions = createQuickActionButtons(readingPaneEmail);
+    badge.parentElement.appendChild(quickActions);
+    
+    console.log('✅ Quick action gombok hozzáadva Reading Pane-hez');
+}
+
+// Add quick action buttons to email list items on hover
+function setupEmailListHoverActions() {
+    // Add global styles
+    if (!document.getElementById('eisenhower-hover-styles')) {
+        const style = document.createElement('style');
+        style.id = 'eisenhower-hover-styles';
+        style.textContent = `
+            .eisenhower-email-hover-container {
+                position: relative;
+            }
+            .eisenhower-hover-actions {
+                position: absolute;
+                right: 8px;
+                top: 50%;
+                transform: translateY(-50%);
+                display: none;
+                background: white;
+                padding: 4px 8px;
+                border-radius: 20px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                z-index: 100;
+            }
+            .eisenhower-email-hover-container:hover .eisenhower-hover-actions {
+                display: flex;
+                gap: 4px;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Find all email list items
+    const emailListSelectors = [
+        'div[role="row"][data-convid]',
+        'div[role="listitem"][aria-label*="email" i]',
+        'div[class*="customScrollBar"] div[role="row"]'
+    ];
+    
+    let emailElements = [];
+    for (const selector of emailListSelectors) {
+        const elements = document.querySelectorAll(selector);
+        if (elements.length > 0) {
+            emailElements = Array.from(elements);
+            break;
+        }
+    }
+    
+    emailElements.forEach(emailEl => {
+        // Skip if already setup
+        if (emailEl.classList.contains('eisenhower-email-hover-container')) {
+            return;
+        }
+        
+        emailEl.classList.add('eisenhower-email-hover-container');
+        
+        // Create hover actions container
+        const hoverActions = document.createElement('div');
+        hoverActions.className = 'eisenhower-hover-actions';
+        
+        const categories = [
+            { icon: '🔴', importance: 4, urgency: 4, color: '#ff4444', name: 'Do First' },
+            { icon: '🟡', importance: 4, urgency: 2, color: '#ffb84d', name: 'Schedule' },
+            { icon: '🔵', importance: 2, urgency: 4, color: '#4499ff', name: 'Delegate' },
+            { icon: '🟢', importance: 2, urgency: 2, color: '#44bb44', name: 'Eliminate' }
+        ];
+        
+        categories.forEach(cat => {
+            const btn = document.createElement('button');
+            btn.className = 'eisenhower-quick-btn';
+            btn.textContent = cat.icon;
+            btn.title = cat.name;
+            btn.style.cssText = `
+                width: 24px;
+                height: 24px;
+                border: 2px solid ${cat.color};
+                background: ${cat.color}15;
+                border-radius: 50%;
+                cursor: pointer;
+                font-size: 12px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s ease;
+                padding: 0;
+            `;
+            
+            btn.addEventListener('mouseenter', () => {
+                btn.style.background = cat.color;
+                btn.style.transform = 'scale(1.15)';
+            });
+            
+            btn.addEventListener('mouseleave', () => {
+                btn.style.background = `${cat.color}15`;
+                btn.style.transform = 'scale(1)';
+            });
+            
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                const emailData = extractEmailData(emailEl);
+                
+                const priorityData = {
+                    id: emailData.id,
+                    subject: emailData.subject,
+                    importance: cat.importance,
+                    urgency: cat.urgency,
+                    timestamp: Date.now()
+                };
+                
+                chrome.storage.local.get(['emailPriorities'], (result) => {
+                    const priorities = result.emailPriorities || {};
+                    priorities[emailData.id] = priorityData;
+                    chrome.storage.local.set({emailPriorities: priorities}, () => {
+                        highlightEmail(emailEl, cat.importance, cat.urgency);
+                        showInPageNotification(`✅ ${cat.icon} ${cat.name}`);
+                    });
+                });
+            });
+            
+            hoverActions.appendChild(btn);
+        });
+        
+        emailEl.appendChild(hoverActions);
+    });
+    
+    console.log(`✅ Hover actions hozzáadva ${emailElements.length} email elemhez`);
+}
+
+// Initialize hover actions with MutationObserver
+let hoverActionsInitialized = false;
+function initializeHoverActions() {
+    if (hoverActionsInitialized) return;
+    
+    setupEmailListHoverActions();
+    addQuickActionsToReadingPane();
+    hoverActionsInitialized = true;
+    
+    // Re-run when DOM changes (new emails loaded)
+    setTimeout(() => {
+        hoverActionsInitialized = false;
+    }, 2000);
+}
+
+// Run hover actions setup periodically
+setInterval(initializeHoverActions, 3000);
+
 // In-page notification helper
 function showInPageNotification(message) {
     const notification = document.createElement('div');
