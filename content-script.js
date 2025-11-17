@@ -7,10 +7,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'categorizeFromContextMenu') {
         console.log('🖱️ Context menu kategorizálás:', request.importance, request.urgency);
         
-        const currentEmail = getCurrentEmail();
+        // Try to get selected email first, fallback to Reading Pane email
+        let currentEmail = getCurrentEmail();
+        
+        // If no selected email, try to get from Reading Pane (currently open email)
+        if (!currentEmail) {
+            console.log('🔍 Nincs kiválasztott email, Reading Pane próba...');
+            const readingPaneEmail = getReadingPaneEmail();
+            if (readingPaneEmail) {
+                currentEmail = readingPaneEmail;
+                console.log('✅ Reading Pane email találva');
+            }
+        }
         
         if (currentEmail) {
             const emailData = extractEmailData(currentEmail);
+            
+            if (!emailData.subject || emailData.subject.length < 3) {
+                console.warn('⚠️ Érvénytelen email tárgy');
+                showInPageNotification('⚠️ Nincs megnyitott vagy kiválasztott e-mail');
+                sendResponse({success: false, error: 'Invalid email subject'});
+                return true;
+            }
             
             const priorityData = {
                 id: emailData.id,
@@ -27,11 +45,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 chrome.storage.local.set({emailPriorities: priorities}, () => {
                     console.log('✅ Prioritás elmentve (context menu):', priorityData);
                     
-                    // Highlight the email
-                    highlightEmail(currentEmail, request.importance, request.urgency);
+                    // Highlight the email if it's in list view
+                    if (currentEmail.hasAttribute('role') && currentEmail.getAttribute('role') === 'row') {
+                        highlightEmail(currentEmail, request.importance, request.urgency);
+                    }
                     
                     // Show success notification
-                    showInPageNotification('✅ Email kategorizálva!');
+                    const categoryNames = {
+                        '4-4': '🔴 Do First',
+                        '4-2': '🟡 Schedule',
+                        '2-4': '🔵 Delegate',
+                        '2-2': '🟢 Eliminate'
+                    };
+                    const categoryKey = `${request.importance}-${request.urgency}`;
+                    const categoryName = categoryNames[categoryKey] || 'kategória';
+                    showInPageNotification(`✅ Email hozzáadva: ${categoryName}`);
                     
                     sendResponse({success: true, emailData: priorityData});
                 });
@@ -39,9 +67,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             
             return true; // async response
         } else {
-            console.warn('⚠️ Nincs kiválasztott e-mail');
-            showInPageNotification('⚠️ Nincs kiválasztott e-mail');
-            sendResponse({success: false, error: 'No email selected'});
+            console.warn('⚠️ Nincs megnyitott vagy kiválasztott e-mail');
+            showInPageNotification('⚠️ Nyiss meg egy e-mailt a kategorizáláshoz');
+            sendResponse({success: false, error: 'No email found'});
         }
         
         return true;
@@ -121,6 +149,56 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
+// Get email from Reading Pane (currently open email)
+function getReadingPaneEmail() {
+    console.log('🔍 Reading Pane email keresés...');
+    
+    // Try to find Reading Pane container
+    const readingPaneSelectors = [
+        '[role="main"]',
+        'div[class*="ReadingPane"]',
+        '[data-app-section="MailReadingPane"]',
+        'div[role="region"][aria-label*="Message"]'
+    ];
+    
+    for (const selector of readingPaneSelectors) {
+        const pane = document.querySelector(selector);
+        if (pane) {
+            console.log('📮 Reading Pane találva:', selector);
+            // Create a pseudo-element representing the Reading Pane email
+            return {
+                isReadingPane: true,
+                readingPaneContainer: pane,
+                getAttribute: (attr) => {
+                    if (attr === 'data-convid' || attr === 'id') {
+                        // Generate ID from Reading Pane content
+                        const subjectEl = pane.querySelector('[class*="subject"], h1, h2');
+                        const subject = subjectEl?.textContent?.trim() || '';
+                        return 'rp_' + hashCode(subject);
+                    }
+                    return null;
+                },
+                querySelector: (sel) => pane.querySelector(sel),
+                hasAttribute: () => false
+            };
+        }
+    }
+    
+    console.warn('⚠️ Reading Pane nem található');
+    return null;
+}
+
+// Simple hash function for generating IDs
+function hashCode(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(36);
+}
+
 // Get currently selected or focused email
 function getCurrentEmail() {
     // Multiple selectors for different email clients
@@ -159,6 +237,42 @@ function getCurrentEmail() {
 
 // Extract email data from DOM element
 function extractEmailData(emailElement) {
+    // Handle Reading Pane pseudo-element
+    if (emailElement.isReadingPane) {
+        const pane = emailElement.readingPaneContainer;
+        const subjectSelectors = [
+            '[class*="subject"]',
+            'h1',
+            'h2',
+            '[class*="Subject"]',
+            'div[class*="messageSubject"]',
+            'span[class*="messageSubject"]'
+        ];
+        
+        let subject = '';
+        for (const selector of subjectSelectors) {
+            const element = pane.querySelector(selector);
+            if (element) {
+                const text = element.textContent?.trim() || '';
+                if (text && text.length > 3) {
+                    subject = text;
+                    break;
+                }
+            }
+        }
+        
+        const emailId = emailElement.getAttribute('data-convid') || emailElement.getAttribute('id');
+        console.log('📧 Reading Pane email adatok:', {id: emailId, subject: subject.substring(0, 50)});
+        
+        return {
+            id: emailId,
+            subject: subject,
+            from: '',
+            date: ''
+        };
+    }
+    
+    // Normal email element handling
     const emailId = emailElement.getAttribute('data-convid') || 
                    emailElement.getAttribute('id') || 
                    emailElement.getAttribute('data-id') ||
