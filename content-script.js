@@ -3,6 +3,50 @@ console.log('📧 Exchange Prioritizer content script betöltve');
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    // Handle context menu categorization
+    if (request.action === 'categorizeFromContextMenu') {
+        console.log('🖱️ Context menu kategorizálás:', request.importance, request.urgency);
+        
+        const currentEmail = getCurrentEmail();
+        
+        if (currentEmail) {
+            const emailData = extractEmailData(currentEmail);
+            
+            const priorityData = {
+                id: emailData.id,
+                subject: emailData.subject,
+                importance: request.importance,
+                urgency: request.urgency,
+                timestamp: Date.now()
+            };
+            
+            // Save to Chrome storage
+            chrome.storage.local.get(['emailPriorities'], (result) => {
+                const priorities = result.emailPriorities || {};
+                priorities[emailData.id] = priorityData;
+                chrome.storage.local.set({emailPriorities: priorities}, () => {
+                    console.log('✅ Prioritás elmentve (context menu):', priorityData);
+                    
+                    // Highlight the email
+                    highlightEmail(currentEmail, request.importance, request.urgency);
+                    
+                    // Show success notification
+                    showInPageNotification('✅ Email kategorizálva!');
+                    
+                    sendResponse({success: true, emailData: priorityData});
+                });
+            });
+            
+            return true; // async response
+        } else {
+            console.warn('⚠️ Nincs kiválasztott e-mail');
+            showInPageNotification('⚠️ Nincs kiválasztott e-mail');
+            sendResponse({success: false, error: 'No email selected'});
+        }
+        
+        return true;
+    }
+    
     if (request.action === 'savePriority') {
         // Get the current email info from the page
         const currentEmail = getCurrentEmail();
@@ -897,6 +941,66 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 });
+
+// In-page notification helper
+function showInPageNotification(message) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 16px 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 999999;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        animation: slideInRight 0.3s ease-out;
+        min-width: 200px;
+        text-align: center;
+    `;
+    notification.textContent = message;
+    
+    // Add animation keyframes if not already added
+    if (!document.getElementById('notification-styles')) {
+        const style = document.createElement('style');
+        style.id = 'notification-styles';
+        style.textContent = `
+            @keyframes slideInRight {
+                from {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            @keyframes slideOutRight {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 3 seconds with fade out animation
+    setTimeout(() => {
+        notification.style.animation = 'slideOutRight 0.3s ease-in';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
 
 // Cleanup on unload
 window.addEventListener('beforeunload', () => {

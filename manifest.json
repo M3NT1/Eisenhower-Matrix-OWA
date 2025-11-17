@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Exchange Prioritizer - Eisenhower Matrix",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Priorizáld az e-maileket Eisenhower matrix alapján",
   "icons": {
     "16": "icons/icon16.png",

@@ -35,32 +35,105 @@ function setupContextMenu() {
     try {
         if (chrome.contextMenus) {
             chrome.contextMenus.removeAll(() => {
+                // Parent menu
                 chrome.contextMenus.create({
-                    id: 'prioritizeEmail',
-                    title: 'Prioritás hozzáadása',
-                    contexts: ['selection']
-                }, () => {
-                    if (chrome.runtime.lastError) {
-                        console.log('ℹ️ Context menu nem elérhető:', chrome.runtime.lastError.message);
-                    } else {
-                        console.log('📋 Context menu létrehozva');
-                    }
+                    id: 'eisenhowerMatrix',
+                    title: 'Eisenhower Mátrix',
+                    contexts: ['page', 'selection']
                 });
+                
+                // Submenu items for each quadrant
+                chrome.contextMenus.create({
+                    id: 'matrix-do-first',
+                    parentId: 'eisenhowerMatrix',
+                    title: '🔴 Do First (Fontos & Sürgős)',
+                    contexts: ['page', 'selection']
+                });
+                
+                chrome.contextMenus.create({
+                    id: 'matrix-schedule',
+                    parentId: 'eisenhowerMatrix',
+                    title: '🟡 Schedule (Fontos & Nem Sürgős)',
+                    contexts: ['page', 'selection']
+                });
+                
+                chrome.contextMenus.create({
+                    id: 'matrix-delegate',
+                    parentId: 'eisenhowerMatrix',
+                    title: '🔵 Delegate (Nem Fontos & Sürgős)',
+                    contexts: ['page', 'selection']
+                });
+                
+                chrome.contextMenus.create({
+                    id: 'matrix-eliminate',
+                    parentId: 'eisenhowerMatrix',
+                    title: '🟢 Eliminate (Nem Fontos & Nem Sürgős)',
+                    contexts: ['page', 'selection']
+                });
+                
+                // Separator
+                chrome.contextMenus.create({
+                    id: 'separator',
+                    parentId: 'eisenhowerMatrix',
+                    type: 'separator',
+                    contexts: ['page', 'selection']
+                });
+                
+                // Open popup option
+                chrome.contextMenus.create({
+                    id: 'open-popup',
+                    parentId: 'eisenhowerMatrix',
+                    title: '⚙️ Mátrix megnyitása',
+                    contexts: ['page', 'selection']
+                });
+                
+                console.log('📋 Context menu létrehozva (4 kategória)');
             });
             
             // Setup click handler (csak egyszer)
             if (!chrome.contextMenus.onClicked.hasListeners()) {
-                chrome.contextMenus.onClicked.addListener((info, tab) => {
-                    if (info.menuItemId === 'prioritizeEmail') {
-                        chrome.action.openPopup().catch(() => {
-                            console.log('ℹ️ Popup nem nyitható meg programmatically');
-                        });
-                    }
-                });
+                chrome.contextMenus.onClicked.addListener(handleContextMenuClick);
             }
         }
     } catch (error) {
         console.log('ℹ️ Context menu nem támogatott:', error.message);
+    }
+}
+
+// Handle context menu clicks
+function handleContextMenuClick(info, tab) {
+    console.log('🖱️ Context menu click:', info.menuItemId);
+    
+    // Map menu ID to importance and urgency
+    const categoryMap = {
+        'matrix-do-first': { importance: 4, urgency: 4 },
+        'matrix-schedule': { importance: 4, urgency: 2 },
+        'matrix-delegate': { importance: 2, urgency: 4 },
+        'matrix-eliminate': { importance: 2, urgency: 2 }
+    };
+    
+    if (info.menuItemId === 'open-popup') {
+        // Try to open popup
+        chrome.action.openPopup().catch(() => {
+            console.log('ℹ️ Popup megnyitás nem sikerült - felhasználónak kell kattintania az ikonra');
+        });
+        return;
+    }
+    
+    const category = categoryMap[info.menuItemId];
+    if (category && tab) {
+        // Send message to content script to categorize current email
+        chrome.tabs.sendMessage(tab.id, {
+            action: 'categorizeFromContextMenu',
+            importance: category.importance,
+            urgency: category.urgency
+        }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.log('⚠️ Content script nem válaszolt:', chrome.runtime.lastError.message);
+            } else if (response && response.success) {
+                console.log('✅ Email kategorizálva context menu-ből');
+            }
+        });
     }
 }
 
