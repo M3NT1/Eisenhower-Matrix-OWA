@@ -103,6 +103,7 @@ function setupContextMenu() {
 // Handle context menu clicks
 function handleContextMenuClick(info, tab) {
     console.log('🖱️ Context menu click:', info.menuItemId, 'on', tab.url);
+    console.log('   Tab ID:', tab.id, 'Tab status:', tab.status);
     
     // Map menu ID to importance and urgency
     const categoryMap = {
@@ -126,31 +127,58 @@ function handleContextMenuClick(info, tab) {
         const owaHosts = ['xch.ulyssys.hu', 'outlook.office365.com', 'outlook.office.com', 'outlook.live.com'];
         const isOWA = owaHosts.some(host => tab.url.includes(host));
         
+        // Helper function to send message with retry
+        const sendMessageWithRetry = (message, maxRetries = 2) => {
+            let attempts = 0;
+            
+            const attemptSend = () => {
+                attempts++;
+                console.log(`   Attempt ${attempts}/${maxRetries + 1} to send message to tab ${tab.id}`);
+                
+                chrome.tabs.sendMessage(tab.id, message, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.warn(`   ⚠️ Attempt ${attempts} failed:`, chrome.runtime.lastError.message);
+                        
+                        if (attempts <= maxRetries) {
+                            console.log(`   🔄 Retrying in 300ms...`);
+                            setTimeout(attemptSend, 300);
+                        } else {
+                            console.error('❌ All retry attempts failed. Content script may not be loaded.');
+                            // Show user notification
+                            chrome.notifications.create({
+                                type: 'basic',
+                                iconUrl: 'icon48.png',
+                                title: 'Eisenhower Matrix',
+                                message: 'Nem sikerült kategorizálni az oldalt. Próbáld újratölteni az oldalt (F5).'
+                            });
+                        }
+                    } else if (response && response.success) {
+                        console.log('✅ Successfully categorized:', isOWA ? 'email' : 'web page');
+                        console.log('   Response:', response);
+                    } else {
+                        console.warn('⚠️ Unexpected response:', response);
+                    }
+                });
+            };
+            
+            attemptSend();
+        };
+        
         if (isOWA) {
             // OWA - categorize email
-            chrome.tabs.sendMessage(tab.id, {
+            console.log('   Detected OWA page - sending email categorization');
+            sendMessageWithRetry({
                 action: 'categorizeFromContextMenu',
                 importance: category.importance,
                 urgency: category.urgency
-            }, (response) => {
-                if (chrome.runtime.lastError) {
-                    console.log('⚠️ OWA content script nem válaszolt:', chrome.runtime.lastError.message);
-                } else if (response && response.success) {
-                    console.log('✅ Email kategorizálva context menu-ből');
-                }
             });
         } else {
             // Universal - categorize web page
-            chrome.tabs.sendMessage(tab.id, {
+            console.log('   Detected non-OWA page - sending web page categorization');
+            sendMessageWithRetry({
                 action: 'categorizeWebPage',
                 importance: category.importance,
                 urgency: category.urgency
-            }, (response) => {
-                if (chrome.runtime.lastError) {
-                    console.log('⚠️ Universal content script nem válaszolt:', chrome.runtime.lastError.message);
-                } else if (response && response.success) {
-                    console.log('✅ Weboldal kategorizálva context menu-ből');
-                }
             });
         }
     }
