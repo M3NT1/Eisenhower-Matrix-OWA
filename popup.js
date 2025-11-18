@@ -14,6 +14,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         
         if (tabName === 'matrix') {
             refreshMatrix();
+        } else if (tabName === 'weblinks') {
+            refreshWebLinks();
         }
     });
 });
@@ -128,6 +130,118 @@ function showNotification(message, type = 'info') {
     setTimeout(() => {
         notification.remove();
     }, 3000);
+}
+
+// Refresh web links matrix
+function refreshWebLinks() {
+    chrome.storage.local.get(['webLinkPriorities'], (result) => {
+        const webLinks = result.webLinkPriorities || {};
+        
+        // Clear all lists
+        const lists = {
+            'weblinks-do-first': [],
+            'weblinks-schedule': [],
+            'weblinks-delegate': [],
+            'weblinks-eliminate': []
+        };
+        
+        Object.entries(webLinks).forEach(([url, data]) => {
+            const li = document.createElement('li');
+            li.className = 'email-item weblink-item';
+            li.setAttribute('data-url', url);
+            
+            // Truncate title
+            let displayTitle = data.title || url;
+            const MAX_LENGTH = 45;
+            if (displayTitle.length > MAX_LENGTH) {
+                displayTitle = displayTitle.substring(0, MAX_LENGTH - 3) + '...';
+            }
+            
+            // Create clickable link
+            const linkSpan = document.createElement('span');
+            linkSpan.className = 'email-subject';
+            linkSpan.textContent = displayTitle;
+            linkSpan.title = `${data.title}\n🌐 ${data.hostname}\n📅 ${new Date(data.timestamp).toLocaleString('hu-HU')}\n\n🖱️ Kattints a megnyitáshoz`;
+            linkSpan.style.cursor = 'pointer';
+            
+            // Click to open URL
+            linkSpan.onclick = (e) => {
+                e.stopPropagation();
+                chrome.tabs.create({ url: url });
+            };
+            
+            li.appendChild(linkSpan);
+            
+            // Add navigation button
+            const navBtn = document.createElement('button');
+            navBtn.innerHTML = '🔗';
+            navBtn.className = 'nav-btn';
+            navBtn.title = 'Megnyitás új lapon';
+            navBtn.onclick = (e) => {
+                e.stopPropagation();
+                chrome.tabs.create({ url: url });
+            };
+            li.appendChild(navBtn);
+            
+            // Add delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.innerHTML = '🗑️';
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.title = 'Törlés';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteWebLink(url);
+            };
+            li.appendChild(deleteBtn);
+            
+            // Categorize
+            const importance = data.importance || 2;
+            const urgency = data.urgency || 2;
+            
+            if (importance >= 3 && urgency >= 3) {
+                lists['weblinks-do-first'].push(li);
+            } else if (importance >= 3 && urgency < 3) {
+                lists['weblinks-schedule'].push(li);
+            } else if (importance < 3 && urgency >= 3) {
+                lists['weblinks-delegate'].push(li);
+            } else {
+                lists['weblinks-eliminate'].push(li);
+            }
+        });
+        
+        // Update DOM
+        for (const [listId, items] of Object.entries(lists)) {
+            const listElement = document.getElementById(listId);
+            if (listElement) {
+                listElement.innerHTML = '';
+                if (items.length === 0) {
+                    const emptyLi = document.createElement('li');
+                    emptyLi.className = 'empty-state';
+                    emptyLi.textContent = 'Nincs elem';
+                    listElement.appendChild(emptyLi);
+                } else {
+                    items.forEach(item => listElement.appendChild(item));
+                }
+            }
+        }
+        
+        console.log('📊 Web Links frissítve:', Object.keys(webLinks).length, 'elem');
+    });
+}
+
+// Delete web link
+function deleteWebLink(url) {
+    if (!confirm('Biztosan törlöd ezt a linket?')) return;
+    
+    chrome.storage.local.get(['webLinkPriorities'], (result) => {
+        const webLinks = result.webLinkPriorities || {};
+        delete webLinks[url];
+        
+        chrome.storage.local.set({ webLinkPriorities: webLinks }, () => {
+            refreshWebLinks();
+            showNotification('✅ Link törölve!', 'success');
+        });
+    });
 }
 
 // Refresh matrix with statistics

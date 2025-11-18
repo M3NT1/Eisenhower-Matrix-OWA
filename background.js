@@ -102,7 +102,7 @@ function setupContextMenu() {
 
 // Handle context menu clicks
 function handleContextMenuClick(info, tab) {
-    console.log('🖱️ Context menu click:', info.menuItemId);
+    console.log('🖱️ Context menu click:', info.menuItemId, 'on', tab.url);
     
     // Map menu ID to importance and urgency
     const categoryMap = {
@@ -122,18 +122,37 @@ function handleContextMenuClick(info, tab) {
     
     const category = categoryMap[info.menuItemId];
     if (category && tab) {
-        // Send message to content script to categorize current email
-        chrome.tabs.sendMessage(tab.id, {
-            action: 'categorizeFromContextMenu',
-            importance: category.importance,
-            urgency: category.urgency
-        }, (response) => {
-            if (chrome.runtime.lastError) {
-                console.log('⚠️ Content script nem válaszolt:', chrome.runtime.lastError.message);
-            } else if (response && response.success) {
-                console.log('✅ Email kategorizálva context menu-ből');
-            }
-        });
+        // Check if we're on an OWA/Exchange page
+        const owaHosts = ['xch.ulyssys.hu', 'outlook.office365.com', 'outlook.office.com', 'outlook.live.com'];
+        const isOWA = owaHosts.some(host => tab.url.includes(host));
+        
+        if (isOWA) {
+            // OWA - categorize email
+            chrome.tabs.sendMessage(tab.id, {
+                action: 'categorizeFromContextMenu',
+                importance: category.importance,
+                urgency: category.urgency
+            }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.log('⚠️ OWA content script nem válaszolt:', chrome.runtime.lastError.message);
+                } else if (response && response.success) {
+                    console.log('✅ Email kategorizálva context menu-ből');
+                }
+            });
+        } else {
+            // Universal - categorize web page
+            chrome.tabs.sendMessage(tab.id, {
+                action: 'categorizeWebPage',
+                importance: category.importance,
+                urgency: category.urgency
+            }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.log('⚠️ Universal content script nem válaszolt:', chrome.runtime.lastError.message);
+                } else if (response && response.success) {
+                    console.log('✅ Weboldal kategorizálva context menu-ből');
+                }
+            });
+        }
     }
 }
 

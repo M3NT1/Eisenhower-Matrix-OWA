@@ -406,6 +406,25 @@ body {
   padding: 16px;
 }
 
+/* Web link specific styles */
+.weblink-item {
+  position: relative;
+}
+
+.weblink-item::before {
+  content: '🔗';
+  position: absolute;
+  left: -20px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.help-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
 .nav-btn {
   flex-shrink: 0;
   width: 18px;

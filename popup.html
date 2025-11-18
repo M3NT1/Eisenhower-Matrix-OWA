@@ -15,6 +15,7 @@
         <div class="tab-buttons">
             <button class="tab-btn active" data-tab="prioritize">Priorizálás</button>
             <button class="tab-btn" data-tab="matrix">Mátrix</button>
+            <button class="tab-btn" data-tab="weblinks">Web Links</button>
             <button class="tab-btn" data-tab="settings">Beállítások</button>
         </div>
 
@@ -92,6 +93,54 @@
                     </div>
                     <p class="quadrant-desc">Nem Fontos & Nem Sürgős</p>
                     <ul id="matrix-eliminate" class="item-list"></ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Web Links Tab -->
+        <div class="tab-content" id="weblinks">
+            <div class="help-text" style="margin-bottom: 16px; padding: 12px; background: #e8f0fe; border-radius: 8px;">
+                <p style="margin: 0; font-size: 13px; color: #1a73e8;">
+                    🌐 <strong>Web Links:</strong> Bármilyen weboldal (JIRA, Confluence, GitHub, stb.) kategorizálható!
+                    Jobb klikk az oldalon → Eisenhower Mátrix → Válassz kategóriát
+                </p>
+            </div>
+            
+            <div class="matrix-grid">
+                <div class="matrix-quadrant do-first">
+                    <div class="quadrant-header">
+                        <span class="quadrant-icon">🔴</span>
+                        <h3>Do First</h3>
+                    </div>
+                    <p class="quadrant-desc">Fontos & Sürgős</p>
+                    <ul id="weblinks-do-first" class="item-list weblink-list"></ul>
+                </div>
+                
+                <div class="matrix-quadrant schedule">
+                    <div class="quadrant-header">
+                        <span class="quadrant-icon">🟡</span>
+                        <h3>Schedule</h3>
+                    </div>
+                    <p class="quadrant-desc">Fontos & Nem Sürgős</p>
+                    <ul id="weblinks-schedule" class="item-list weblink-list"></ul>
+                </div>
+                
+                <div class="matrix-quadrant delegate">
+                    <div class="quadrant-header">
+                        <span class="quadrant-icon">🔵</span>
+                        <h3>Delegate</h3>
+                    </div>
+                    <p class="quadrant-desc">Nem Fontos & Sürgős</p>
+                    <ul id="weblinks-delegate" class="item-list weblink-list"></ul>
+                </div>
+                
+                <div class="matrix-quadrant eliminate">
+                    <div class="quadrant-header">
+                        <span class="quadrant-icon">🟢</span>
+                        <h3>Eliminate</h3>
+                    </div>
+                    <p class="quadrant-desc">Nem Fontos & Nem Sürgős</p>
+                    <ul id="weblinks-eliminate" class="item-list weblink-list"></ul>
                 </div>
             </div>
         </div>
