@@ -4,6 +4,9 @@ console.log('🌐 Universal Prioritizer loaded on:', window.location.href);
 // Storage key for web links
 const WEBLINKS_STORAGE_KEY = 'webLinkPriorities';
 
+// Script ready flag
+let scriptReady = false;
+
 // Get current page data
 function getCurrentPageData() {
     const url = window.location.href;
@@ -209,10 +212,14 @@ function checkAndDisplayBadge() {
 
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log('📨 Universal content script received message:', request);
+    
     if (request.action === 'categorizeWebPage') {
-        console.log('🌐 Web page categorization:', request);
+        console.log('🌐 Web page categorization request received');
+        console.log('   Importance:', request.importance, 'Urgency:', request.urgency);
         
         const pageData = getCurrentPageData();
+        console.log('   Page data extracted:', pageData);
         
         const priorityData = {
             url: pageData.url,
@@ -229,14 +236,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             webLinks[pageData.url] = priorityData;
             
             chrome.storage.local.set({ [WEBLINKS_STORAGE_KEY]: webLinks }, () => {
-                console.log('✅ Web page priority saved:', priorityData);
+                console.log('✅ Web page priority saved to storage:', priorityData);
                 
                 // Add badge to page
+                console.log('   Adding badge to page...');
                 addPageBadge(request.importance, request.urgency);
                 
                 // Show notification
                 showNotification(`✅ Oldal hozzáadva: ${getCategoryName(request.importance, request.urgency)}`);
                 
+                console.log('   Sending success response');
                 sendResponse({ success: true, data: priorityData });
             });
         });
@@ -245,6 +254,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     
     if (request.action === 'removeWebPagePriority') {
+        console.log('🗑️ Remove web page priority request');
         const currentUrl = window.location.href;
         
         chrome.storage.local.get([WEBLINKS_STORAGE_KEY], (result) => {
@@ -263,6 +273,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         
         return true;
     }
+    
+    // Always respond to avoid timeout errors
+    console.log('⚠️ Unknown message action:', request.action);
+    sendResponse({ success: false, error: 'Unknown action' });
+    return false;
 });
 
 // Helper: Get category name
@@ -393,4 +408,9 @@ if (document.body) {
     });
 }
 
-console.log('✅ Universal Prioritizer ready');
+// Initialize on page load
+checkAndDisplayBadge();
+scriptReady = true;
+console.log('✅ Universal Prioritizer READY on:', window.location.href);
+console.log('   Script can now receive messages from context menu');
+
