@@ -33,71 +33,77 @@ chrome.runtime.onInstalled.addListener((details) => {
 // Setup context menu (safe to call multiple times)
 function setupContextMenu() {
     try {
-        if (chrome.contextMenus) {
-            chrome.contextMenus.removeAll(() => {
-                // Parent menu
-                chrome.contextMenus.create({
-                    id: 'eisenhowerMatrix',
-                    title: 'Eisenhower Mátrix',
-                    contexts: ['page', 'selection']
-                });
-                
-                // Submenu items for each quadrant
-                chrome.contextMenus.create({
-                    id: 'matrix-do-first',
-                    parentId: 'eisenhowerMatrix',
-                    title: '🔴 Do First (Fontos & Sürgős)',
-                    contexts: ['page', 'selection']
-                });
-                
-                chrome.contextMenus.create({
-                    id: 'matrix-schedule',
-                    parentId: 'eisenhowerMatrix',
-                    title: '🟡 Schedule (Fontos & Nem Sürgős)',
-                    contexts: ['page', 'selection']
-                });
-                
-                chrome.contextMenus.create({
-                    id: 'matrix-delegate',
-                    parentId: 'eisenhowerMatrix',
-                    title: '🔵 Delegate (Nem Fontos & Sürgős)',
-                    contexts: ['page', 'selection']
-                });
-                
-                chrome.contextMenus.create({
-                    id: 'matrix-eliminate',
-                    parentId: 'eisenhowerMatrix',
-                    title: '🟢 Eliminate (Nem Fontos & Nem Sürgős)',
-                    contexts: ['page', 'selection']
-                });
-                
-                // Separator
-                chrome.contextMenus.create({
-                    id: 'separator',
-                    parentId: 'eisenhowerMatrix',
-                    type: 'separator',
-                    contexts: ['page', 'selection']
-                });
-                
-                // Open popup option
-                chrome.contextMenus.create({
-                    id: 'open-popup',
-                    parentId: 'eisenhowerMatrix',
-                    title: '⚙️ Mátrix megnyitása',
-                    contexts: ['page', 'selection']
-                });
-                
-                console.log('📋 Context menu létrehozva (4 kategória)');
+        if (!chrome.contextMenus) {
+            console.log('⚠️ Context menu API nem elérhető');
+            return;
+        }
+        
+        console.log('🔧 Context menu beállítása...');
+        
+        chrome.contextMenus.removeAll(() => {
+            // Parent menu
+            chrome.contextMenus.create({
+                id: 'eisenhowerMatrix',
+                title: 'Eisenhower Mátrix',
+                contexts: ['page', 'selection']
             });
             
-            // Setup click handler (csak egyszer)
-            if (!chrome.contextMenus.onClicked.hasListeners()) {
-                chrome.contextMenus.onClicked.addListener(handleContextMenuClick);
-            }
-        }
+            // Submenu items for each quadrant
+            chrome.contextMenus.create({
+                id: 'matrix-do-first',
+                parentId: 'eisenhowerMatrix',
+                title: '🔴 Do First (Fontos & Sürgős)',
+                contexts: ['page', 'selection']
+            });
+            
+            chrome.contextMenus.create({
+                id: 'matrix-schedule',
+                parentId: 'eisenhowerMatrix',
+                title: '🟡 Schedule (Fontos & Nem Sürgős)',
+                contexts: ['page', 'selection']
+            });
+            
+            chrome.contextMenus.create({
+                id: 'matrix-delegate',
+                parentId: 'eisenhowerMatrix',
+                title: '🔵 Delegate (Nem Fontos & Sürgős)',
+                contexts: ['page', 'selection']
+            });
+            
+            chrome.contextMenus.create({
+                id: 'matrix-eliminate',
+                parentId: 'eisenhowerMatrix',
+                title: '🟢 Eliminate (Nem Fontos & Nem Sürgős)',
+                contexts: ['page', 'selection']
+            });
+            
+            // Separator
+            chrome.contextMenus.create({
+                id: 'separator',
+                parentId: 'eisenhowerMatrix',
+                type: 'separator',
+                contexts: ['page', 'selection']
+            });
+            
+            // Open popup option
+            chrome.contextMenus.create({
+                id: 'open-popup',
+                parentId: 'eisenhowerMatrix',
+                title: '⚙️ Mátrix megnyitása',
+                contexts: ['page', 'selection']
+            });
+            
+            console.log('✅ Context menu sikeresen létrehozva (4 kategória)');
+        });
     } catch (error) {
-        console.log('ℹ️ Context menu nem támogatott:', error.message);
+        console.error('❌ Context menu létrehozási hiba:', error);
     }
+}
+
+// Setup click handler - call this only once globally
+if (chrome.contextMenus && !chrome.contextMenus.onClicked.hasListeners()) {
+    chrome.contextMenus.onClicked.addListener(handleContextMenuClick);
+    console.log('✅ Context menu click listener regisztrálva');
 }
 
 // Handle context menu clicks
@@ -254,5 +260,10 @@ self.addEventListener('error', (event) => {
 self.addEventListener('unhandledrejection', (event) => {
     console.error('❌ Promise rejection:', event.reason);
 });
+
+// Initialize context menu on service worker startup
+// This is important because the service worker can be restarted at any time
+// and onInstalled won't be called again
+setupContextMenu();
 
 console.log('✅ Background service worker teljesen betöltve');
