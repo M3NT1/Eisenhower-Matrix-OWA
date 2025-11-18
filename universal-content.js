@@ -9,8 +9,25 @@ function getCurrentPageData() {
     const url = window.location.href;
     const title = document.title || 'Untitled Page';
     
+    // JIRA specific: try to get issue summary from h1#summary-val
+    const jiraSummary = document.querySelector('h1#summary-val');
+    if (jiraSummary) {
+        const summaryText = jiraSummary.textContent.trim();
+        // Remove the edit icon text if present
+        const cleanSummary = summaryText.replace(/Click to edit/g, '').trim();
+        if (cleanSummary) {
+            console.log('📋 JIRA summary found:', cleanSummary);
+            return {
+                url: url,
+                title: cleanSummary,
+                hostname: window.location.hostname
+            };
+        }
+    }
+    
     // Try to find better title from page headers
     const selectors = [
+        'h1#summary-val',  // JIRA summary
         'h1',
         '[class*="page-header"] h1',
         '[class*="page-title"]',
@@ -21,11 +38,14 @@ function getCurrentPageData() {
     for (const selector of selectors) {
         const element = document.querySelector(selector);
         if (element && element.textContent.trim()) {
-            return {
-                url: url,
-                title: element.textContent.trim(),
-                hostname: window.location.hostname
-            };
+            const text = element.textContent.trim().replace(/Click to edit/g, '').trim();
+            if (text) {
+                return {
+                    url: url,
+                    title: text,
+                    hostname: window.location.hostname
+                };
+            }
         }
     }
     
@@ -317,7 +337,60 @@ function showNotification(message) {
     }, 3000);
 }
 
+// Track current URL for change detection
+let lastUrl = window.location.href;
+
 // Check on page load
 checkAndDisplayBadge();
+
+// Monitor URL changes (for SPA navigation like JIRA)
+function onUrlChange() {
+    const currentUrl = window.location.href;
+    if (currentUrl !== lastUrl) {
+        console.log('🔄 URL changed:', lastUrl, '→', currentUrl);
+        lastUrl = currentUrl;
+        
+        // Remove old badge
+        const oldBadge = document.querySelector('.eisenhower-page-badge');
+        if (oldBadge) {
+            oldBadge.remove();
+        }
+        
+        // Check and display badge for new URL
+        setTimeout(() => {
+            checkAndDisplayBadge();
+        }, 500); // Small delay for DOM to update
+    }
+}
+
+// Listen for history API changes (SPA navigation)
+window.addEventListener('popstate', onUrlChange);
+
+// Override pushState and replaceState to detect SPA navigation
+const originalPushState = history.pushState;
+const originalReplaceState = history.replaceState;
+
+history.pushState = function(...args) {
+    originalPushState.apply(this, args);
+    onUrlChange();
+};
+
+history.replaceState = function(...args) {
+    originalReplaceState.apply(this, args);
+    onUrlChange();
+};
+
+// Monitor DOM changes for dynamic content (JIRA issue key changes)
+const urlObserver = new MutationObserver(() => {
+    onUrlChange();
+});
+
+// Observe body for changes (JIRA updates URL without full page reload)
+if (document.body) {
+    urlObserver.observe(document.body, {
+        childList: true,
+        subtree: false
+    });
+}
 
 console.log('✅ Universal Prioritizer ready');
